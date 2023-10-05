@@ -12,7 +12,7 @@ This GitHub repository contains a Python implementation of a multi-client chat a
 
 1. **Clone the Repository:**
    ```
-   git clone https://github.com/MohammadAlmosallam/multi-threaded-server.git
+   git clone https://github.com/MohammadAlmosallam/chat-app.git
    ```
 
 2. **Run the Server:**
