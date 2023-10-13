@@ -63,6 +63,16 @@ def send_message(source_client_id, target_client_id, message_content, client_soc
             offline_message = f'Client {target_client_id} is not online.'
             client_socket.send(offline_message.encode('utf-8'))
 
+def send_client_list_to_all_clients():
+    global clients
+
+    # Create a single message with the list of online clients
+    online_clients_message = f'Online clients: {", ".join(list(clients.keys()))}'
+
+    # Send the message to all clients
+    for client_id, client_socket in clients.items():
+        client_socket.send(online_clients_message.encode('utf-8'))
+
 def reset_client_life(client_id):
     global clients_last_alive
     with clients_lock:
@@ -87,6 +97,7 @@ def remove_client(client_id, client_socket):
             client_socket.close()  # Close the client socket
             print(
                 f'Client {client_id} disconnected. Online clients: {list(clients.keys())}')
+            send_client_list_to_all_clients()
 
 def check_client_alive():
     global clients_last_alive
@@ -122,6 +133,8 @@ def main():
             clients_last_alive[client_id] = time.time()
             print(
                 f'Client {client_id} connected. Online clients: {list(clients.keys())}')
+            send_client_list_to_all_clients()
+            
         client_handler = threading.Thread(
             target=handle_client, args=(client_socket, client_id))
         client_handler.start()
