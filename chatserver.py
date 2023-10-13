@@ -9,7 +9,6 @@ clients_lock = threading.Lock()
 # Set the timeout interval for receiving "Alive" messages (in seconds)
 ALIVE_TIMEOUT = 10
 
-
 def handle_client(client_socket, client_id):
     global clients, clients_last_alive
     while True:
@@ -30,17 +29,21 @@ def handle_client(client_socket, client_id):
                 send_client_list(client_socket)
             elif message.startswith('('):
                 target_client_id, msg_content = parse_message(message)
-                send_message(client_id, target_client_id, msg_content)
+                if target_client_id and msg_content:
+                    send_message(client_id, target_client_id, msg_content, client_socket)
         except:
             remove_client(client_id, client_socket)
             break
 
-
 def parse_message(message):
-    # Parse message and extract target client ID and message content
-    # Implement your parsing logic here based on the given message format
-    pass
-
+    # Parse the general message format: (target_client_id) message-content
+    if message.startswith('(') and ')' in message:
+        start_idx = message.index('(') + 1
+        end_idx = message.index(')')
+        target_client_id = message[start_idx:end_idx]
+        msg_content = message[end_idx + 1:].strip()
+        return target_client_id, msg_content
+    return None, None
 
 def send_client_list(client_socket):
     global clients
@@ -48,23 +51,31 @@ def send_client_list(client_socket):
         client_list = ', '.join(list(clients.keys()))
         client_socket.send(client_list.encode('utf-8'))
 
-
-def send_message(source_client_id, target_client_id, message_content):
+def send_message(source_client_id, target_client_id, message_content, client_socket):
     global clients
     with clients_lock:
         if target_client_id in clients:
             target_client_socket = clients[target_client_id]
-            message = f'({source_client_id}) {message_content}'
-            target_client_socket.send(message.encode('utf-8'))
+            formatted_message = f'received from client ({source_client_id}): {message_content}'
+            target_client_socket.send(formatted_message.encode('utf-8'))
         else:
-            print(f'Client {target_client_id} is not online.')
-
+            # Notify the source client that the target client is not online
+            offline_message = f'Client {target_client_id} is not online.'
+            client_socket.send(offline_message.encode('utf-8'))
 
 def reset_client_life(client_id):
     global clients_last_alive
-    print("Alive :", client_id)
     with clients_lock:
         clients_last_alive[client_id] = time.time()
+        
+        # Create a list of online clients
+        online_clients = list(clients.keys())
+        
+        # Create a single message with the list of online clients
+        online_clients_message = f'Online clients: {", ".join(online_clients)}'
+        
+        # Print the online clients message
+        print(f"Alive: {client_id} - {online_clients_message}")
 
 
 def remove_client(client_id, client_socket):
@@ -76,7 +87,6 @@ def remove_client(client_id, client_socket):
             client_socket.close()  # Close the client socket
             print(
                 f'Client {client_id} disconnected. Online clients: {list(clients.keys())}')
-
 
 def check_client_alive():
     global clients_last_alive
@@ -93,7 +103,6 @@ def check_client_alive():
                 client_socket.close()  # Close the socket before removing the client
             remove_client(client_id, client_socket)
         time.sleep(1)  # Check client activity every 1 second
-
 
 def main():
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -116,7 +125,6 @@ def main():
         client_handler = threading.Thread(
             target=handle_client, args=(client_socket, client_id))
         client_handler.start()
-
 
 if __name__ == "__main__":
     main()
